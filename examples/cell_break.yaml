@@ -1,0 +1,38 @@
+# 配置3: 单元格跨页 - 允许单元格内容跨页显示
+data_paths:
+  text: "examples/data/text.json"
+  image: "examples/data/figure.json"
+  table: "examples/data/table.json"
+  formula: "examples/data/formula.json"
+  title: ""
+work_path:
+  template_path: "templates"
+  template_file: "three_columns/document_cell_break.html.jinja"  # 使用单元格跨页模板
+  template_get_data: "three_columns/getData"
+  html_path: "/Users/bdw/Downloads/INF-MLLM/Infinity-Parser/Infinity-Synth/working/html/output_{i}.html"
+  save_image_dir: "working/image/"
+  output_gt_path: "working/ground_truth/result_of_id{i}.json"
+  result: "results.json"
+defaults:
+  save_path: "Temp"
+  save_every_n: 4
+  
+multipage:
+  enabled: true
+  table:
+    max_rows_per_page: 15
+
+layout_config:
+  element:
+    table: 1  # 包含表格
+    figure: 0
+    title: 0
+    text: 10
+    formula: 0
+    header: 1
+    footer: 1
+    page_footnote: 0
+  columns: 1
+
+num_workers: 1
+nums: 10

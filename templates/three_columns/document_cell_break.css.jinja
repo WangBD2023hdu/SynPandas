@@ -1,0 +1,229 @@
+{# CSS for 模板3: 单元格跨页 - 允许单元格内容跨页显示 #}
+
+.container h3 {
+  margin-bottom: {{styles.gap.h3p_gap}};
+  text-align: {{styles.h3location|default("left")}};
+}
+
+.container p {
+  margin-top: 0px;
+  line-height: {{ styles.line_height }};
+  text-indent: 2em;
+  margin-bottom: 0px;
+}
+
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+p {
+  word-break: break-all;
+}
+
+.a4-page {
+  width: 210mm;
+  height: 297mm;
+  border: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  padding: 20mm;
+  page-break-after: always;
+  box-sizing: border-box;
+  justify-content: space-between;
+  position: relative;
+}
+
+.main_content {
+  column-count: {{styles.columns}};
+  column-gap: 16px;
+}
+
+.header {
+  width: calc(100% - 20px);
+  height: 10mm;
+  background-color: {{styles.header.background_color}};
+  padding: 10px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  right: 5px;
+  z-index: 1000;
+  font-family: 'Arial', sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.header-left,
+.header-mid,
+.header-right {
+  font-size: 10px;
+  text-align: center;
+}
+
+.footer {
+  width: 100%;
+  height: 10mm;
+  border-top: 2px solid black;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  box-sizing: border-box;
+  background-color: {{styles.header.background_color}};
+  position: absolute;
+  bottom: 5px;
+  left: 5px;
+  right: 5px;
+}
+
+.footer-left,
+.footer-mid,
+.footer-right {
+  flex: 1;
+  text-align: center;
+}
+
+.table_outer {
+  width: 67%;
+  margin: 1px auto;
+}
+
+.table_caption {
+  width: max-content;
+  margin: 16px auto;
+  text-align: left;
+  font-size: 12px;
+}
+
+.table_footnote {
+  width: max-content;
+  text-align: left;
+  font-size: 11px;
+}
+
+.table-block {
+  width: 100%;
+  text-align: center;
+}
+
+/* 单元格跨页模式：允许单元格内容跨页显示 */
+.table-cell-break .table-block table {
+  margin: 0;
+  font-size: 14px;
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid #ffffff;
+  page-break-inside: auto; /* 允许表格跨页 */
+}
+
+.table-cell-break .table-block table thead {
+  display: table-header-group;
+}
+
+.table-cell-break .table-block table tbody {
+  display: table-row-group;
+}
+
+.table-cell-break .table-block table tr {
+  page-break-inside: auto; /* 允许行跨页 */
+  page-break-after: auto;
+}
+
+/* 关键：允许单元格跨页 */
+.table-cell-break .table-block th,
+.table-cell-break .table-block td {
+  padding: 2px 2px;
+  border: 1px solid #ddd;
+  font-size: 10px;
+  text-align: center;
+  border-left: none;
+  border-right: none;
+  border-top: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  font-weight: bold;
+  page-break-inside: auto; /* 关键：允许单元格内容跨页 */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.table-cell-break .table-block table thead tr:first-child th {
+  border-top: 2px solid #000;
+}
+
+/* 打印时的优化：单元格可以跨页 */
+@media print {
+  .table-cell-break .table-block table {
+    page-break-inside: auto;
+  }
+  
+  .table-cell-break .table-block table thead {
+    display: table-header-group;
+  }
+  
+  .table-cell-break .table-block table tbody {
+    display: table-row-group;
+  }
+  
+  /* 允许行跨页 */
+  .table-cell-break .table-block table tr {
+    page-break-inside: auto; /* 允许行跨页 */
+    page-break-after: auto;
+  }
+  
+  /* 允许单元格跨页 */
+  .table-cell-break .table-block th,
+  .table-cell-break .table-block td {
+    page-break-inside: auto; /* 单元格内容可以跨页 */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  
+  /* 表头行仍然避免跨页 */
+  .table-cell-break .table-block table thead tr {
+    page-break-inside: avoid;
+  }
+}
+
+h3 {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.text {
+  font-size: 12px;
+  text-align: left;
+  text-indent: 4ch;
+  line-height: 1.2;
+  margin: 2px auto;
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+
+  .a4-page {
+    width: 210mm;
+    height: calc(297mm - 0.5mm);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+}
