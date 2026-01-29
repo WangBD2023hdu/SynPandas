@@ -937,15 +937,71 @@ class chrome_render:
             });
             return isOverflowing;  
         ''')
+        overflow = self.driver.execute_script(r"""
+            (function () {
+              function numPx(v){ return parseFloat(v || '0') || 0; }
+
+              function getContentBox(page){
+                const r = page.getBoundingClientRect();
+                const cs = getComputedStyle(page);
+                const pl=numPx(cs.paddingLeft), pr=numPx(cs.paddingRight);
+                const pt=numPx(cs.paddingTop),  pb=numPx(cs.paddingBottom);
+                return { left:r.left+pl, right:r.right-pr, top:r.top+pt, bottom:r.bottom-pb };
+              }
+
+              const eps = 1; // 允许 1px 误差
+              const pages = Array.from(document.querySelectorAll('.a4-page'));
+              const offenders = [];
+
+              for (let pi=0; pi<pages.length; pi++){
+                const page = pages[pi];
+                const box = getContentBox(page);
+
+                // 只扫“正文区”的常见大元素，避免把 header/footer/装饰元素也算进去
+                const targets = page.querySelectorAll(
+                  '.main_content table, .main_content img, .main_content pre, .main_content code, .main_content .table_outer, .main_content .table-block'
+                );
+
+                for (const el of targets){
+                  const rects = el.getClientRects();
+                  for (const r of rects){
+                    const overflowX = (r.right - box.right) > eps || (box.left - r.left) > eps;
+                    const overflowY = (r.bottom - box.bottom) > eps || (box.top - r.top) > eps;
+
+                    if (overflowX || overflowY){
+                      offenders.push({
+                        pageIndex: pi,
+                        tag: el.tagName.toLowerCase(),
+                        className: el.className || '',
+                        id: el.id || '',
+                        overflowX, overflowY,
+                        deltaRight: +(r.right - box.right).toFixed(2),
+                        deltaLeft:  +(box.left - r.left).toFixed(2),
+                        deltaBottom:+(r.bottom - box.bottom).toFixed(2),
+                        deltaTop:   +(box.top - r.top).toFixed(2),
+                      });
+                      break;
+                    }
+                  }
+                  if (offenders.length) break; // 发现一次就够了（你也可以不 break，收集全部）
+                }
+                if (offenders.length) break;
+              }
+
+              return { ok: offenders.length === 0, offenders };
+            })();
+            """)
+
+
         
-        overflowDetected = False
+        # overflowDetected = False
 
 
         if not overflowDetected:
             pdf_obj = self.driver.execute_cdp_cmd("Page.printToPDF", {
                 "paperWidth": 8.27,       
                 "paperHeight": 11.69,
-                "marginTop": 0, "marginBottom": 0, "marginLeft": 0, "marginRight": 0,
+                "marginTop": 10, "marginBottom": 10, "marginLeft": 0, "marginRight": 0,
                 "printBackground": True,
                 "scale": 1,
                 "preferCSSPageSize": True, 

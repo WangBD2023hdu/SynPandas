@@ -1,5 +1,4 @@
 {# Copyright (c) Microsoft Corporation. All rights reserved. #}
-{# 模板2: 表头不重复 - 只在第一页显示表头，后续页面只显示表格主体 #}
 
 {% extends "base.html.jinja" %}
 {%- block style %}
@@ -18,6 +17,15 @@
     mjx-container[jax="CHTML"][display="false"] { display: inline-block; vertical-align: baseline; }
     mjx-container[jax="CHTML"][display="true"]  { display: block; text-align: center; margin: .6em 0; }
     pre, code { white-space: pre; }
+
+    /* --- 修改开始：添加打印样式控制 --- */
+    @media print {
+        /* 将表头显示组改为行组，禁止浏览器自动跨页重复表头 */
+        thead {
+            display: table-row-group !important; 
+        }
+    }
+    /* --- 修改结束 --- */
     
 {% endblock style %}
 
@@ -26,7 +34,7 @@
 
 <div class="a4-page">
 
-    {% set header = input_data.get('header', {}) %}
+{#     {% set header = input_data.get('header', {}) %}
     {% if header %}
       <div class="header">
         {% if header.left %}
@@ -42,7 +50,7 @@
           <div class="hcentered-line"></div>
         {% endif %}
       </div>
-    {% endif %}
+    {% endif %} #}
 
     <div class="main_content">
 
@@ -51,7 +59,7 @@
             
             {% if ele.type == "table" %}
             
-                <div class="table_outer table-no-repeat-header">
+                <div class="table_outer">
                     <p class="table_caption"> {{ ele.caption }} </p>
                     <div class="table-block">
                         {{ ele.html | safe  }}
@@ -106,12 +114,12 @@
             <p class="page_footnote_p"> {{page_footnote}} </p>
           </div>
         {% endif %}
+ 
 
-
-        {% set footer = input_data.get('footer', {}) %}
+{#         {% set footer = input_data.get('footer', {}) %}
         {% if footer %}
           <div class="footer">
-          
+           
             {% if footer.left %}
               <div class="footer-left">{{ footer.left }}</div>
             {% endif %}
@@ -122,7 +130,7 @@
               <div class="footer-right">{{ footer.right }}</div>
             {% endif %}
           </div>
-        {% endif %}
+        {% endif %} #}
         
         </div>
 
@@ -131,7 +139,7 @@
   'use strict';
 
   function setCellStyle(cell, cssObj) {
-  
+   
     const st = cell.style;
     for (const k in cssObj) st[k] = cssObj[k];
   }
@@ -229,39 +237,6 @@
   obs.observe(document.documentElement, { childList: true, subtree: true });
 
   window.styleTables = styleTables;
-})();
-</script>
-
-<script>
-// 表头不重复处理：在打印时隐藏后续页面的表头
-(function() {
-  'use strict';
-  
-  // 检测是否在打印模式
-  function handleNoRepeatHeader() {
-    const tables = document.querySelectorAll('.table-no-repeat-header table');
-    
-    tables.forEach(table => {
-      const thead = table.querySelector('thead');
-      if (!thead) return;
-      
-      // 标记表头，用于后续处理
-      thead.setAttribute('data-header-id', 'header-' + Math.random().toString(36).substr(2, 9));
-      
-      // 监听打印事件
-      window.addEventListener('beforeprint', function() {
-        // 注意：由于浏览器限制，这个功能可能无法完全实现
-        // Chrome的打印引擎会自动重复表头，这是浏览器的默认行为
-        console.log('打印模式：表头不重复功能可能受浏览器限制');
-      });
-    });
-  }
-  
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', handleNoRepeatHeader);
-  } else {
-    handleNoRepeatHeader();
-  }
 })();
 </script>
 

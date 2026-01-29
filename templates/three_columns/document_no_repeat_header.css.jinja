@@ -31,7 +31,9 @@ p {
   border: 1px solid #ccc;
   display: flex;
   flex-direction: column;
-  padding: 20mm;
+  padding: 12mm;
+  padding-top: 18mm;
+  padding-bottom: 18mm;
   page-break-after: always;
   box-sizing: border-box;
   position: relative;
@@ -98,7 +100,7 @@ p {
 }
 
 .table_outer {
-  width: 67%;
+  width: 100%;
   margin: 1px auto;
 }
 
@@ -120,24 +122,21 @@ p {
   text-align: center;
 }
 
-/* 表头不重复模式：表头只在第一页显示，后续页面只显示表格主体 */
+/* ==========================================================
+   CSS 修改重点：表头不重复模式 (Mode 2)
+   ========================================================== */
+
 .table-no-repeat-header .table-block table {
   margin: 0;
-  font-size: 14px;
+  font-size: 10px;
   border-collapse: collapse;
   width: 100%;
   border: 1px solid #ffffff;
-  page-break-inside: auto; /* 允许表格跨页 */
 }
 
 .table-no-repeat-header .table-block table thead {
-  display: table-header-group;
-  page-break-after: avoid; /* 表头后不分页 */
-}
-
-/* 关键：使用CSS计数器隐藏后续页面的表头 */
-.table-no-repeat-header .table-block table thead {
-  counter-increment: page;
+  /* 核心修改：将其视为普通行组，禁止浏览器自动跨页重复 */
+  display: table-row-group; 
 }
 
 .table-no-repeat-header .table-block table tbody {
@@ -145,15 +144,16 @@ p {
 }
 
 .table-no-repeat-header .table-block table tr {
-  page-break-inside: avoid; /* 行不被截断 */
-  page-break-after: auto;
+  /* 核心修改：防止行内内容被切断（保持单元格完整） */
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .table-no-repeat-header .table-block th,
 .table-no-repeat-header .table-block td {
   padding: 2px 2px;
   border: 1px solid #ddd;
-  font-size: 10px;
+  font-size: 8px;
   text-align: center;
   border-left: none;
   border-right: none;
@@ -166,61 +166,7 @@ p {
   border-top: 2px solid #000;
 }
 
-/* 打印时的优化：表头不重复 */
-@media print {
-  .table-no-repeat-header .table-block table {
-    page-break-inside: auto;
-  }
-  
-  /* 表头只在第一页显示 */
-  .table-no-repeat-header .table-block table thead {
-    display: table-header-group;
-  }
-  
-  /* 使用CSS技巧：在后续页面隐藏表头 */
-  @page {
-    counter-increment: page;
-  }
-  
-  /* 从第二页开始隐藏表头 */
-  .table-no-repeat-header .table-block table thead {
-    display: table-header-group;
-  }
-  
-  /* 注意：纯CSS无法完全实现表头不重复，需要配合JavaScript或服务端处理 */
-  .table-no-repeat-header .table-block table tbody {
-    display: table-row-group;
-  }
-  
-  .table-no-repeat-header .table-block table tr {
-    page-break-inside: avoid;
-    page-break-after: auto;
-  }
-  
-  /* 表头后强制分页，确保表头只在第一页 */
-  .table-no-repeat-header .table-block table thead {
-    page-break-after: always;
-  }
-}
-
-h3 {
-  font-size: 16px;
-  margin-bottom: 4px;
-}
-
-.text {
-  font-size: 12px;
-  text-align: left;
-  text-indent: 4ch;
-  line-height: 1.2;
-  margin: 2px auto;
-}
-
-@page {
-  size: A4;
-  margin: 0;
-}
-
+/* 打印时的特定优化 */
 @media print {
   html, body {
     margin: 0;
@@ -232,5 +178,40 @@ h3 {
     min-height: calc(297mm - 0.5mm);
     box-sizing: border-box;
     overflow: visible;
+    border: none !important;   /* 打印不出框 */
+    box-shadow: none !important;
   }
+
+  /* 再次强制确保打印时表头不重复 */
+  .table-no-repeat-header .table-block table thead {
+     display: table-row-group !important;
+  }
+  
+  table { border-collapse: collapse; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  td, th { break-inside: avoid; page-break-inside: avoid; }
+  
+  /* 再次强制确保行不被切断 */
+  .table-no-repeat-header .table-block table tr {
+     break-inside: avoid !important;
+     page-break-inside: avoid !important;
+  }
+}
+
+h3 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.text {
+  font-size: 16px;
+  text-align: left;
+  text-indent: 4ch;
+  line-height: 1.2;
+  margin: 2px auto;
+}
+
+@page {
+  size: A4;
+  margin: 15mm 0 15mm 0 !important;
 }
