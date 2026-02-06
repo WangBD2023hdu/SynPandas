@@ -38,7 +38,7 @@ def pipeline(title: List[dict], text: List[dict], table: List[dict], formula: Li
         if len(all_data)>=nums:
             break
         styles = get_styles_num(config)
-        input_content = Input_data.getData()
+        input_content, md = Input_data.getData()
 
         if input_content is None:
             continue
@@ -52,15 +52,20 @@ def pipeline(title: List[dict], text: List[dict], table: List[dict], formula: Li
         # 使用多页PDF生成方法（支持跨页表格）
         cross_column_paragraphs = render.generate_multipage_pdf(f"file://{html_path}", save_image_path, enable_multipage=True)
         print(cross_column_paragraphs)
+        cross_column_paragraphs = ""
         if cross_column_paragraphs is not None:
-            location_info = extract_form_from_json(save_image_path, cross_column_paragraphs)
-            all_data.append(location_info)
-            data_counter += 1
-            total_count += 1
-            if args.check:
-                os.makedirs(config['defaults']['save_path'], exist_ok=True)
-                draw_boxes_on_image(save_image_path, location_info, config['defaults']['save_path'])
-
+            if not args.multi_page:
+                location_info = extract_form_from_json(save_image_path, cross_column_paragraphs)
+                all_data.append(location_info)
+                data_counter += 1
+                total_count += 1
+                if args.check:
+                    os.makedirs(config['defaults']['save_path'], exist_ok=True)
+                    draw_boxes_on_image(save_image_path, location_info, config['defaults']['save_path'])
+            else:
+                all_data.append({"pdf": save_image_path, "markdown": md})
+                data_counter += 1
+                total_count += 1
             if data_counter >= config['defaults']["save_every_n"]:
                 save_data_to_file(all_data, output_gt_path)
                 data_counter = 0

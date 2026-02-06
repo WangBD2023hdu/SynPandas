@@ -119,115 +119,138 @@ p {
   width: 100%;
   text-align: center;
 }
+{# ============================
+  模板3：单元格跨页（row 可拆分）
+  适配：table_outer.table-cell-break + JS 动态 table style
+============================ #}
 
-/* 单元格跨页模式：允许单元格内容跨页显示 */
-.table-cell-break .table-block table {
-  margin: 0;
-  font-size: 14px;
-  border-collapse: collapse;
-  width: 100%;
-  border: 1px solid #ffffff;
-  page-break-inside: auto; /* 允许表格跨页 */
+/* --- 强烈建议：打印时不要用 flex 居中，否则分页计算容易怪 --- */
+@media print {
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+  }
+  body {
+    display: block !important;
+    justify-content: unset !important;
+    align-items: unset !important;
+  }
 }
 
+/* 页面容器：保持你原有结构 */
+.a4-page {
+  width: 210mm;
+  min-height: calc(297mm - 0.5mm);
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+/* 你原来 main_content 有 columns；columns 会影响分页与表格跨页稳定性
+   如果你的表格确实需要跨页，建议表格区域不走多栏排版。
+   下面做局部隔离：table_outer 内部强制单栏。 */
+.table_outer {
+  break-inside: auto;
+  page-break-inside: auto;
+}
+
+/* ✅ 关键：表格容器内禁用多栏（否则分页/跨页非常不稳定） */
+.table_outer.table-cell-break {
+  column-count: 1 !important;
+  column-gap: 0 !important;
+}
+
+/* 表格外层宽度：保持你现有设定 */
+.table_outer {
+  width: 100%;
+  margin: 1px auto;
+}
+
+/* caption/footnote 不要被拆到奇怪的位置 */
+.table_caption,
+.table_footnote {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* ============================
+   核心：table / tr / td 的分页与断行策略
+============================ */
+
+/* table：固定布局 + 允许碎片化 */
+.table-cell-break .table-block table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;              /* ✅ 更利于断行与分页稳定 */
+  break-inside: auto;
+  page-break-inside: auto;
+}
+
+/* thead：你希望表头重复就保留 header-group；
+   如果你“不重复表头”，把这行改成 table-row-group */
 .table-cell-break .table-block table thead {
   display: table-header-group;
 }
 
-.table-cell-break .table-block table tbody {
-  display: table-row-group;
-}
-
+/* ✅ demo 模式3 的关键：行可拆分 */
 .table-cell-break .table-block table tr {
-  page-break-inside: auto; /* 允许行跨页 */
-  page-break-after: auto;
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+  page-break-after: auto !important;
 }
 
-/* 关键：允许单元格跨页 */
+/* td/th：断行更激进 + 顶部对齐（覆盖 JS inline 的 middle） */
 .table-cell-break .table-block th,
 .table-cell-break .table-block td {
-  padding: 2px 2px;
-  border: 1px solid #ddd;
-  font-size: 10px;
-  text-align: center;
-  border-left: none;
-  border-right: none;
-  border-top: 1px solid #ccc;
-  border-bottom: 1px solid #ccc;
-  font-weight: bold;
-  page-break-inside: auto; /* 关键：允许单元格内容跨页 */
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  hyphens: auto;
+  /* 断行策略：避免长英文/数字/URL 把列撑爆导致整行推走 */
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;   /* ✅ 比 break-word 更狠 */
+  hyphens: auto !important;
+
+  /* 跨页观感：顶部对齐更自然（JS 会写 middle，所以用 !important） */
+  vertical-align: top !important;
+
+  /* 不要阻止分页 */
+  break-inside: auto !important;
+  page-break-inside: auto !important;
 }
 
-.table-cell-break .table-block table thead tr:first-child th {
-  border-top: 2px solid #000;
+/* 表头行仍避免跨页（否则表头会被切开） */
+.table-cell-break .table-block table thead tr {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
 }
 
-/* 打印时的优化：单元格可以跨页 */
+/* ============================
+   打印态强化：Chromium printToPDF 更依赖 @media print + !important
+============================ */
 @media print {
   .table-cell-break .table-block table {
-    page-break-inside: auto;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }
-  
-  .table-cell-break .table-block table thead {
-    display: table-header-group;
-  }
-  
+
   .table-cell-break .table-block table tbody {
-    display: table-row-group;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }
-  
-  /* 允许行跨页 */
-  .table-cell-break .table-block table tr {
-    page-break-inside: auto; /* 允许行跨页 */
-    page-break-after: auto;
-  }
-  
-  /* 允许单元格跨页 */
+
+  .table-cell-break .table-block table tr,
   .table-cell-break .table-block th,
   .table-cell-break .table-block td {
-    page-break-inside: auto; /* 单元格内容可以跨页 */
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    hyphens: auto;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }
-  
-  /* 表头行仍然避免跨页 */
-  .table-cell-break .table-block table thead tr {
-    page-break-inside: avoid;
-  }
+
+  /* 如果你发现某些浏览器把大行整体挪走，可尝试允许“更激进的切分”：
+     下面这行一般不需要，但在极端长行时能减少整行推到下一页 */
+  /* .table-cell-break .table-block table { page-break-after: auto !important; } */
 }
 
-h3 {
-  font-size: 16px;
-  margin-bottom: 4px;
-}
-
-.text {
-  font-size: 12px;
-  text-align: left;
-  text-indent: 4ch;
-  line-height: 1.2;
-  margin: 2px auto;
-}
-
+/* 页边距 */
 @page {
   size: A4;
-  margin: 0;
-}
-
-@media print {
-  html, body {
-    margin: 0;
-    padding: 0;
-  }
-
-  .a4-page {
-    width: 210mm;
-    min-height: calc(297mm - 0.5mm);
-    box-sizing: border-box;
-    overflow: visible;
-  }
+  margin: 15mm 0 15mm 0 !important;
+  border: 1px solid #000; !important;   /* 打印不出框 */
 }

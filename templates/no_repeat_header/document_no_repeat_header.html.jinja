@@ -12,19 +12,19 @@
     {% import "macro/page_layout.css.jinja" as layout %}
         {{ layout.set_page_num() }}
     {# Element-Specific Style #}
-    {%- include "three_columns/document_no_repeat_header.css.jinja" with context %}
+    {%- include "no_repeat_header/document_no_repeat_header.css.jinja" with context %}
    
     mjx-container[jax="CHTML"][display="false"] { display: inline-block; vertical-align: baseline; }
     mjx-container[jax="CHTML"][display="true"]  { display: block; text-align: center; margin: .6em 0; }
     pre, code { white-space: pre; }
 
     /* --- 修改开始：添加打印样式控制 --- */
-{#     @media print {
+    @media print {
         /* 将表头显示组改为行组，禁止浏览器自动跨页重复表头 */
         thead {
             display: table-row-group !important; 
         }
-    } #}
+    }
     /* --- 修改结束 --- */
     
 {% endblock style %}
@@ -133,6 +133,7 @@
         {% endif %} #}
         
         </div>
+
 <script>
 (function () {
   'use strict';
@@ -160,6 +161,8 @@
     tbl.style.borderCollapse = 'collapse';
     // tbl.style.border = '1px solid #000'; 跨页表格 页脚栏
     tbl.style.border = '0'; 
+    
+    
 
     // ✅ 随机字号：10/11/12（每表一次）
     const fontSizes = ['10px', '11px', '12px'];
@@ -170,7 +173,9 @@
 
     // ✅ 浅灰背景更明显一点
     const graySolid = '#e9e9e9';
-    const grayBg = `linear-gradient(${graySolid}, ${graySolid})`;
+    const grayBg = 'none'; // `linear-gradient(${graySolid}, ${graySolid})`;
+    
+
 
     const cells = tbl.querySelectorAll('th, td');
     cells.forEach(cell => {
@@ -359,7 +364,23 @@ ${scope ? `${scope} ` : ''}:lang(zh-Hant) { font-family: ${zhStack}; }
 </script>
 
 
-  
+  <script>
+  window.MathJax = {
+    startup: { typeset: true },
+
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+
+      processEscapes: true, 
+      tags: 'none'      
+    },
+
+    options: {
+      skipHtmlTags: ['script','noscript','style','textarea','pre','code']
+    }
+  };
+  </script>
 <script src="/home/ma-user/work/data_mllm/software/MathJax/es5/tex-mml-chtml.js">
 </script>
 

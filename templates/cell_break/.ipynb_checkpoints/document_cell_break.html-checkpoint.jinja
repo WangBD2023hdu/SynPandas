@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>完美排版引擎：贪婪换页版</title>
+    <style>
+        /* ================= 1. 全局重置 ================= */
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #525659; font-family: "SimSun", serif; }
+
+        /* ================= 2. A4 容器 (核心修复) ================= */
+        .a4-page {
+            /* 物理锁定 */
+            width: 210mm;
+            height: 297mm !important; 
+            
+            /* 内边距 */
+            padding-top: 15mm;
+            padding-right: 15mm;
+            padding-bottom: 0mm;
+            padding-left: 15mm;
+            
+            background: #fff;
+            /* 核心：溢出隐藏，宁可切掉内容也不许撑开页面 */
+            overflow: hidden; 
+            position: relative; 
+            display: block; 
+            margin: 0px auto; 
+            page-break-after: always;
+        }
+
+        /* ================= 3. 表格样式 ================= */
+        .report-table, .a4-page table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed; /* 必须固定布局 */
+            font-size: 12px;
+            line-height: 1.4;
+            margin-top: 15px;
+        }
+
+        .report-table th, .report-table td, 
+        .a4-page table th, .a4-page table td {
+            border: 1px solid #000 !important;
+            padding: 4px;
+            word-break: break-all;
+            vertical-align: top;
+        }
+
+        .report-table th, .a4-page table th {
+            background: #f0f0f0;
+            height: 30px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        /* 跨页边框补全 */
+        tr.row-cut-bottom td { border-bottom: 1px solid #000; }
+        tr.row-cut-top td { border-top: 1px solid #000; }
+
+        /* ================= 4. 打印专用修正 ================= */
+        @media print {
+            body { background: white; margin: 0; }
+            
+            .a4-page {
+                margin: 0 !important;
+                border: none;
+                box-shadow: none;
+            }
+
+            #loading-mask { display: none !important; }
+
+            /* 禁止原生重复表头 */
+            thead { display: table-row-group !important; }
+            
+            /* 允许任意位置断页 */
+            table, tr, td, th, tbody, thead {
+                page-break-inside: auto !important;
+                break-inside: auto !important;
+            }
+        }
+
+        /* 辅助样式 */
+        #source-materials { display: none; }
+        #loading-mask { position: fixed; top:0; left:0; width:100%; height:100%; background:#fff; z-index:9999; display:flex; justify-content:center; align-items:center; }
+        .doc-p { font-size: 14px; line-height: 1.6; text-indent: 2em; margin: 5px 0; text-align: justify; }
+        .doc-h1 { text-align: left; font-size: 18px; font-weight: bold; margin: 15px 0; }
+        .table_caption, .figure_caption { text-align: center; font-size: 12px; font-weight: bold; margin: 5px 0; }
+        img { max-width: 100%; display: block; margin: 5px auto; }
+    </style>
+</head>
+<body>
+
+    <div id="loading-mask"><div>正在排版...</div></div>
+
+    <div id="source-materials">
+        {% set ns = namespace(formula_idx=1, fig_idx=1, tab_idx=1) %}
+        {% if input_data and input_data.body %}
+            {% for ele in input_data.body %}
+                {% if ele.type == "table" %}
+                    <div class="table_outer">
+                        {% if ele.caption %}<p class="table_caption">{{ ele.caption }}</p>{% endif %}
+                        <div class="table-block">{{ ele.html | safe }}</div>
+                        {% if ele.footnote %}<p class="table_footnote">{{ ele.footnote }}</p>{% endif %}
+                    </div>
+                {% elif ele.type == "figure" %}
+                    <div class="figure_outer">
+                        <img src="{{ ele.path }}">
+                        <p class="figure_caption">图{{ ns.fig_idx }}：{{ ele.caption }}</p>
+                    </div>
+                    {% set ns.fig_idx = ns.fig_idx + 1 %}
+                {% elif ele.type == "title" %}
+                    <h1>{{ ele.content }}</h1>
+                {% elif ele.type == "Body" %}
+                    <h3 class="doc-h1">{{ ele.heading }}</h3>
+                    {% for txt in ele.text %}<p class="doc-p">{{ txt }}</p>{% endfor %}
+                {% elif ele.type == "formula" %}
+                    <div class="formula-block">
+                        <p class="formula" data-latex="{{ ele.latex }}">{{ ele.latex }}</p>
+                        <p class="formula_caption">({{ ns.formula_idx }})</p>
+                    </div>
+                    {% set ns.formula_idx = ns.formula_idx + 1 %}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        {% if input_data.page_footnote %}
+        <div id="source-page-footnote" style="display:none">{{ input_data.page_footnote }}</div>
+        {% endif %}
+    </div>
+
+    <div id="report-stage"></div>
+
+    <script src="/home/ma-user/work/data_mllm/software/MathJax/es5/tex-mml-chtml.js"></script>
+    <script>
+    window.MathJax = { startup: { typeset: true }, options: { skipHtmlTags: ['script','noscript','style','textarea','pre','code'] } };
+    </script>
+
+    <script>
+    (function () {
+        'use strict';
+
+        class DocFlowRenderer {
+            constructor(sourceId, targetId) {
+                this.sourceRoot = document.getElementById(sourceId);
+                this.container = document.getElementById(targetId);
+                this.pages = [];
+                this.config = { contentHeightPx: 0 };
+                this.lastYieldTime = performance.now();
+                const pf = document.getElementById('source-page-footnote');
+                this.pageFootnoteText = pf ? pf.innerHTML : '';
+            }
+
+            async checkYield() {
+                const now = performance.now();
+                if (now - this.lastYieldTime > 15) {
+                    await new Promise(r => setTimeout(r, 0));
+                    this.lastYieldTime = performance.now();
+                }
+            }
+
+            async init() {
+                if (window.MathJax && window.MathJax.startup) {
+                    try { await Promise.race([window.MathJax.startup.promise, new Promise(r => setTimeout(r, 2000))]); } catch(e){}
+                }
+
+                this.calculateMetrics();
+                const children = Array.from(this.sourceRoot.children);
+                this.createNewPage();
+
+                for (let i = 0; i < children.length; i++) {
+                    await this.checkYield();
+                    let node = children[i];
+                    if (node.nodeType !== 1 || node.id === 'source-page-footnote') continue;
+
+                    if (node.tagName === 'DIV' && node.classList.contains('table_outer')) {
+                        const caption = node.querySelector('.table_caption');
+                        if (caption) {
+                            caption.style.textAlign = 'center'; caption.style.fontWeight = 'bold';
+                            await this.processBlock(caption);
+                        }
+                        const internalTable = node.querySelector('table');
+                        if (internalTable) await this.processTable(internalTable);
+                        const footnote = node.querySelector('.table_footnote');
+                        if (footnote) await this.processBlock(footnote);
+                    } else if (node.tagName === 'TABLE') {
+                        await this.processTable(node);
+                    } else {
+                        await this.processBlock(node);
+                    }
+                }
+                document.getElementById('loading-mask').style.display = 'none';
+                window.isLayoutComplete = true; 
+            }
+
+            calculateMetrics() {
+                const temp = document.createElement('div');
+                temp.className = 'a4-page';
+                document.body.appendChild(temp);
+                const rect = temp.getBoundingClientRect();
+                const style = window.getComputedStyle(temp);
+                
+                // [核心策略] 增大安全区
+                // 页脚预留：45px (确保页脚不会被正文压住)
+                const footerReserved = 45; 
+                // 安全缓冲：10px (宁可每页下面空一点，也不能让任何像素溢出到下一页)
+                const safetyBuffer = 10; 
+                
+                this.config.contentHeightPx = rect.height 
+                    - parseFloat(style.paddingTop) 
+                    - parseFloat(style.paddingBottom) 
+                    - footerReserved 
+                    - safetyBuffer;
+                    
+                document.body.removeChild(temp);
+            }
+
+            createNewPage() {
+                const page = document.createElement('div');
+                page.className = 'a4-page';
+                this.container.appendChild(page);
+                
+                // 页脚 (绝对定位，bottom值加大一点，防止贴底被切)
+                const footer = document.createElement('div');
+                footer.style.cssText = "position:absolute; bottom:8mm; width:calc(100% - 40mm); text-align:center; font-size:12px; border-top:0px solid #000; padding-top:5px; left:20mm;";
+                
+                if (this.pageFootnoteText) {
+                    const note = document.createElement('div');
+                    note.style.fontSize = '10px'; note.style.textAlign = 'left';
+                    note.innerHTML = this.pageFootnoteText;
+                    footer.appendChild(note);
+                }
+                const pageNum = document.createElement('div');
+                pageNum.innerText = `${this.pages.length + 1}`;
+                footer.appendChild(pageNum);
+                pageNum.style.display = 'none'; // 隐藏页码
+                page.appendChild(footer);
+                
+                this.pages.push({ el: page });
+                return page;
+            }
+
+            getCurrentPage() { return this.pages[this.pages.length - 1].el; }
+
+            getRemainingHeight() {
+                const page = this.getCurrentPage();
+                let used = 0;
+                for (let child of page.children) {
+                    if (window.getComputedStyle(child).position !== 'absolute') {
+                        const style = window.getComputedStyle(child);
+                        used += child.offsetHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom);
+                    }
+                }
+                return this.config.contentHeightPx - used;
+            }
+
+            async processBlock(sourceNode) {
+                await this.checkYield();
+                const page = this.getCurrentPage();
+                const clone = sourceNode.cloneNode(true);
+                page.appendChild(clone);
+                
+                if (this.getRemainingHeight() >= 0) return;
+
+                page.removeChild(clone);
+                let limitHeight = this.getRemainingHeight();
+                
+                // [核心策略] 贪婪换页：如果剩余空间小于 30px (约一行半)，直接换页，不拆分
+                // 这能有效防止最后一行文字被切一半
+                if (limitHeight < 30 || sourceNode.tagName === 'IMG' || sourceNode.querySelector('img')) {
+                    this.createNewPage();
+                    await this.processBlock(sourceNode);
+                    return;
+                }
+
+                const fullText = sourceNode.innerText;
+                const splitIndex = this.findTextSplitIndex(sourceNode, fullText, limitHeight);
+
+                if (splitIndex <= 0) {
+                    this.createNewPage();
+                    await this.processBlock(sourceNode);
+                    return;
+                }
+
+                const part1Node = sourceNode.cloneNode(false);
+                part1Node.innerText = fullText.substring(0, splitIndex);
+                page.appendChild(part1Node);
+
+                const part2Node = sourceNode.cloneNode(false);
+                part2Node.innerText = fullText.substring(splitIndex);
+                part2Node.style.textIndent = '0';
+                
+                this.createNewPage();
+                await this.processBlock(part2Node);
+            }
+
+            // === 表格逻辑 ===
+            async processTable(sourceTable) {
+                this.ensureColgroup(sourceTable);
+                let currentTable = this.createTableStructure(sourceTable, true);
+                this.getCurrentPage().appendChild(currentTable);
+                let currentTbody = currentTable.querySelector('tbody'); // 追踪tbody引用
+                
+                const rows = Array.from(sourceTable.querySelectorAll('tbody tr'));
+                
+                for (let row of rows) {
+                    await this.checkYield();
+                    const cellsData = Array.from(row.children).map(td => ({
+                        html: td.innerHTML, tagName: td.tagName,
+                        attrs: Array.from(td.attributes).reduce((acc, attr) => { acc[attr.name] = attr.value; return acc; }, {})
+                    }));
+
+                    const hasMerge = cellsData.some(c => (c.attrs.rowspan && c.attrs.rowspan > 1) || (c.attrs.colspan && c.attrs.colspan > 1));
+                    
+                    if (hasMerge) {
+                        currentTbody = await this.processWholeRow(currentTbody, cellsData);
+                    } else {
+                        currentTbody = await this.processRowRecursive(currentTbody, cellsData, true, sourceTable);
+                    }
+                }
+            }
+
+            ensureColgroup(table) {
+                // 1. 如果 HTML 里自带了 colgroup，就不处理，直接返回
+                if (table.querySelector('colgroup')) return;
+
+                let maxCols = 0;
+                const rows = table.querySelectorAll('tr');
+
+                // 2. 遍历每一行，计算物理列数（累加 colspan）
+                for(let r of rows) {
+                    let currentCols = 0;
+                    // 遍历行内的每一个单元格
+                    for (let cell of r.children) {
+                        // 获取 colspan 属性，如果没有则默认为 1
+                        const colspan = parseInt(cell.getAttribute('colspan')) || 1;
+                        currentCols += colspan;
+                    }
+                    // 取所有行中最大的列数作为表格的总列数
+                    if (currentCols > maxCols) maxCols = currentCols;
+                }
+                
+                // 如果没算出列数（空表格），直接返回
+                if (maxCols === 0) return;
+
+                // 3. 创建 colgroup
+                const colgroup = document.createElement('colgroup');
+                
+                // 计算每列的百分比宽度
+                const percent = 100 / maxCols;
+                
+                // 4. 根据计算出的 maxCols (数字) 进行循环
+                for (let i = 0; i < maxCols; i++) {
+                    const col = document.createElement('col'); 
+                    col.style.width = `${percent}%`; 
+                    colgroup.appendChild(col);
+                }
+                
+                // 5. 插入到表格最前面
+                table.insertBefore(colgroup, table.firstChild);
+            }
+
+            createTableStructure(sourceTable, includeHeader) {
+                const table = document.createElement('table');
+                table.className = (sourceTable.className || '') + ' report-table';
+                const colgroup = sourceTable.querySelector('colgroup');
+                if(colgroup) table.appendChild(colgroup.cloneNode(true));
+                const thead = sourceTable.querySelector('thead');
+                if (thead && includeHeader) table.appendChild(thead.cloneNode(true));
+                table.appendChild(document.createElement('tbody'));
+                return table;
+            }
+
+            async processWholeRow(tbody, cellsData) {
+                const tr = document.createElement('tr');
+                cellsData.forEach(cell => {
+                    const td = document.createElement(cell.tagName);
+                    td.innerHTML = cell.html;
+                    for (let key in cell.attrs) td.setAttribute(key, cell.attrs[key]);
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+
+                if (this.getRemainingHeight() >= 0) return tbody;
+
+                tbody.removeChild(tr);
+                this.createNewPage();
+                
+                const newTable = this.createTableStructure(tbody.closest('table'), false);
+                this.getCurrentPage().appendChild(newTable);
+                const newTbody = newTable.querySelector('tbody');
+                
+                const newTr = document.createElement('tr');
+                cellsData.forEach(cell => {
+                    const td = document.createElement(cell.tagName);
+                    td.innerHTML = cell.html;
+                    for (let key in cell.attrs) td.setAttribute(key, cell.attrs[key]);
+                    newTr.appendChild(td);
+                });
+                newTbody.appendChild(newTr);
+                
+                return newTbody;
+            }
+
+            async processRowRecursive(tbody, cellsData, isFirstPart, sourceTable) {
+                await this.checkYield();
+                const tr = document.createElement('tr');
+                if(!isFirstPart) tr.className = 'row-cut-top';
+                cellsData.forEach(cell => {
+                    const td = document.createElement(cell.tagName);
+                    td.innerHTML = cell.html;
+                    for (let key in cell.attrs) td.setAttribute(key, cell.attrs[key]);
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+
+                if (this.getRemainingHeight() >= 0) return tbody;
+
+                tbody.removeChild(tr);
+                let limitHeight = this.getRemainingHeight();
+
+                // [核心策略] 贪婪换页：表格行如果不满 30px 空间，直接整行换页，不切分
+                if (limitHeight < 30) {
+                    this.createNewPage();
+                    const newTable = this.createTableStructure(sourceTable, false);
+                    this.getCurrentPage().appendChild(newTable);
+                    // 递归，整行放入新页
+                    return await this.processRowRecursive(newTable.querySelector('tbody'), cellsData, isFirstPart, sourceTable);
+                }
+
+                const splitPoints = [];
+                let allZero = true;
+                for(let i=0; i<cellsData.length; i++) {
+                    const idx = this.findTableSplitIndex(tbody, cellsData[i], limitHeight, i, cellsData.length);
+                    splitPoints.push(idx);
+                    if (idx > 0) allZero = false;
+                }
+
+                if (allZero) {
+                    this.createNewPage();
+                    const newTable = this.createTableStructure(sourceTable, false);
+                    this.getCurrentPage().appendChild(newTable);
+                    return await this.processRowRecursive(newTable.querySelector('tbody'), cellsData, isFirstPart, sourceTable);
+                }
+
+                const part1Data = [], part2Data = [];
+                let hasPart2 = false;
+                for(let i=0; i<cellsData.length; i++) {
+                    const original = cellsData[i];
+                    const txt = original.html || '';
+                    const splitIdx = splitPoints[i];
+                    part1Data.push({ ...original, html: txt.substring(0, splitIdx) });
+                    part2Data.push({ ...original, html: txt.substring(splitIdx) });
+                    if (txt.substring(splitIdx).length > 0) hasPart2 = true;
+                }
+
+                const tr1 = document.createElement('tr');
+                tr1.className = isFirstPart ? 'row-cut-bottom' : 'row-cut-top row-cut-bottom';
+                part1Data.forEach(cell => {
+                    const td = document.createElement(cell.tagName);
+                    td.innerHTML = cell.html;
+                    for (let key in cell.attrs) td.setAttribute(key, cell.attrs[key]);
+                    tr1.appendChild(td);
+                });
+                tbody.appendChild(tr1);
+
+                if (!hasPart2) return tbody;
+
+                this.createNewPage();
+                const newTable = this.createTableStructure(sourceTable, false);
+                this.getCurrentPage().appendChild(newTable);
+                
+                return await this.processRowRecursive(newTable.querySelector('tbody'), part2Data, false, sourceTable);
+            }
+
+            findTableSplitIndex(tbody, cellData, limitHeight, colIndex, totalCols) {
+                if (!cellData.html) return 0;
+                let low=0, high=cellData.html.length, best=0;
+                
+                const tr = document.createElement('tr');
+                for(let i=0; i<totalCols; i++) tr.appendChild(document.createElement('td'));
+                tbody.appendChild(tr);
+                const targetCell = tr.children[colIndex];
+                for (let key in cellData.attrs) targetCell.setAttribute(key, cellData.attrs[key]);
+
+                if (tr.offsetHeight > limitHeight) { tbody.removeChild(tr); return 0; }
+                
+                while(low <= high) {
+                    const mid = (low+high)>>1;
+                    targetCell.innerHTML = cellData.html.substring(0, mid);
+                    if(tr.offsetHeight <= limitHeight) { best = mid; low = mid+1; } else { high = mid-1; }
+                }
+                tbody.removeChild(tr);
+                return best;
+            }
+        }
+        window.onload = () => { new DocFlowRenderer('source-materials', 'report-stage').init(); };
+    })();
+    </script>
+</body>
+</html>

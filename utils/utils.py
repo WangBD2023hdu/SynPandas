@@ -19,6 +19,7 @@ def get_args():
         action="store_true",
         help="If this parameter is provided, images with bounding boxes will be generated and saved to the path specified by save_path",
     )
+    parser.add_argument("--multi_page", action="store_true", help="enable multi-page")
     args = parser.parse_args()
     get_args._args = args
     return args
@@ -940,3 +941,64 @@ def split_table_for_multipage(html_table, max_rows_per_page=None):
         table_parts.append(str(new_table))
     
     return table_parts if table_parts else [html_table]
+
+from typing import Any, Dict, List
+
+
+def doc_dict_to_markdown(doc: Dict[str, Any], heading_level: int = 1) -> str:
+    """
+    将形如 {"body":[...]} 的字典转成 Markdown。
+    规则：
+      - heading 前加 #（默认一级标题，可用 heading_level 调整）
+      - Body.text 按行输出，不额外加 heading
+      - table.html 原样输出
+      - 所有块用 \n\n 拼接
+    """
+    blocks: List[str] = []
+    body = doc.get("body", [])
+    if not isinstance(body, list):
+        return ""
+
+    hprefix = "#" * max(1, int(heading_level)) + " "
+
+    for item in body:
+        if not isinstance(item, dict):
+            continue
+
+        itype = item.get("type")
+
+        # 1) 普通段落块
+        if itype == "Body":
+            heading = item.get("heading", "")
+            if isinstance(heading, str) and heading.strip():
+                blocks.append(f"{hprefix}{heading.strip()}")
+
+            text_list = item.get("text", [])
+            if isinstance(text_list, list):
+                # 逐条输出，保留原顺序；去掉空行
+                lines = [t.strip() for t in text_list if isinstance(t, str) and t.strip()]
+                if lines:
+                    blocks.append("\n".join(lines))
+
+        # 2) 表格块
+        elif itype == "table":
+            html = item.get("html", "")
+            if isinstance(html, str) and html.strip():
+                blocks.append(html.strip())
+
+        # 3) 其他类型（可选：你需要也可以扩展 figure/formula）
+        else:
+            # 如果还有别的类型，也尽量输出 heading/text（不丢）
+            heading = item.get("heading", "")
+            if isinstance(heading, str) and heading.strip():
+                blocks.append(f"{hprefix}{heading.strip()}")
+
+            text_list = item.get("text", [])
+            if isinstance(text_list, list):
+                lines = [t.strip() for t in text_list if isinstance(t, str) and t.strip()]
+                if lines:
+                    blocks.append("\n".join(lines))
+
+    # 用 \n\n 拼接所有块
+    return "\n\n".join([b for b in blocks if isinstance(b, str) and b.strip()])
+

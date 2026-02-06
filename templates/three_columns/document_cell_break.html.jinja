@@ -1,256 +1,337 @@
-{# Copyright (c) Microsoft Corporation. All rights reserved. #}
-{# 模板3: 单元格跨页 - 允许单元格内容跨页显示 #}
-
-{% extends "base.html.jinja" %}
-{%- block style %}
-    {# Global Style #}
-    {% import "macro/dimension.css.jinja" as dimension %}
-        {{ dimension.a4_paper() }}
-    {% import "macro/text.css.jinja" as text %}
-        {{ text.set_font(font_family, font_size) }}
-        {{ text.set_hyphenation(hyphenate) }}
-        {{ text.set_text_align(text_align) }}
-    {% import "macro/page_layout.css.jinja" as layout %}
-        {{ layout.set_page_num() }}
-    {# Element-Specific Style #}
-    {%- include "three_columns/document_cell_break.css.jinja" with context %}
-   
-    mjx-container[jax="CHTML"][display="false"] { display: inline-block; vertical-align: baseline; }
-    mjx-container[jax="CHTML"][display="true"]  { display: block; text-align: center; margin: .6em 0; }
-    pre, code { white-space: pre; }
-    
-{% endblock style %}
-
-{% block body %}
-
-
-<div class="a4-page">
-
-    {% set header = input_data.get('header', {}) %}
-    {% if header %}
-      <div class="header">
-        {% if header.left %}
-          <div class="header-left">{{ header.left }}</div>
-        {% endif %}
-        {% if header.mid %}
-          <div class="header-mid">{{ header.mid }}</div>
-        {% endif %}
-        {% if header.right %}
-          <div class="header-right">{{ header.right }}</div>
-        {% endif %}
-        {% if header.line %}
-          <div class="hcentered-line"></div>
-        {% endif %}
-      </div>
-    {% endif %}
-
-    <div class="main_content">
-
-        {% set ns = namespace(formula_idx=1, fig_idx=1, tab_idx=1) %}
-        {% for ele in input_data.get("body", None) %}
-            
-            {% if ele.type == "table" %}
-            
-                <div class="table_outer table-cell-break">
-                    <p class="table_caption"> {{ ele.caption }} </p>
-                    <div class="table-block">
-                        {{ ele.html | safe  }}
-                    </div>
-
-                    <p class="table_footnote"> {{ ele.footnote }} </p>
-                    
-                </div>
-                {% set ns.tab_idx = ns.tab_idx + 1 %}
-            {% elif ele.type == "figure" %}
-                <img src="{{ ele.path }}">
-
-                <p class="figure_caption">图{{ ns.fig_idx }}：{{ ele.caption }}</p>
-                
-                {% set ns.fig_idx = ns.fig_idx + 1 %}
-
-            {% elif ele.type == "title" %}
-                <h1>{{ ele.content }}</h1>
-
-            {% elif ele.type == "Body" %}
-            
-                <h3>{{ ele.heading }}</h3>
-            
-                {% for txt in ele.text %}
-                    <p class="text">{{ txt }}</p>
-                {% endfor %}
-
-            {% elif ele.type == "formula" %}
-            
-            <div class="formula-block">
-
-                <p class="formula" data-latex="{{ ele.latex }}">{{ ele.latex }}</p>
-                <p class="formula_caption">({{ ns.formula_idx }})</p>
-                
-            </div>
-                    
-            {% set ns.formula_idx = ns.formula_idx + 1 %}
-
-            {% endif %}
-            
-        {% endfor %}
-   
-        </div>
-
-
-         {% set page_footnote = input_data.get('page_footnote', None) %}
-         
-         <div class="page_bottom">
- 
-         {% if page_footnote %}
-          <div class="page_footnote">
-            <p class="page_footnote_p"> {{page_footnote}} </p>
-          </div>
-        {% endif %}
-
-
-        {% set footer = input_data.get('footer', {}) %}
-        {% if footer %}
-          <div class="footer">
-          
-            {% if footer.left %}
-              <div class="footer-left">{{ footer.left }}</div>
-            {% endif %}
-            {% if footer.mid %}
-              <div class="footer-mid">{{ footer.mid }}</div>
-            {% endif %}
-            {% if footer.right %}
-              <div class="footer-right">{{ footer.right }}</div>
-            {% endif %}
-          </div>
-        {% endif %}
-        
-        </div>
-
-<script>
-(function () {
-  'use strict';
-
-  function setCellStyle(cell, cssObj) {
-  
-    const st = cell.style;
-    for (const k in cssObj) st[k] = cssObj[k];
-  }
-
-  function pickHeaderRow(tbl) {
-    const thead = tbl.querySelector('thead');
-    if (thead) {
-      const rows = thead.querySelectorAll('tr');
-      if (rows.length) return rows[rows.length - 1];
-    }
-    const tbody = tbl.querySelector('tbody');
-    if (tbody) {
-      const row = tbody.querySelector('tr');
-      if (row) return row;
-    }
-    return tbl.querySelector('tr');
-  }
-
-  function styleThreeLine(tbl) {
-    tbl.style.borderCollapse = 'collapse';
-    tbl.style.borderTop = '2px solid #000';
-    tbl.style.borderBottom = '2px solid #000';
-    tbl.style.borderLeft = 'none';
-    tbl.style.borderRight = 'none';
-
-    const cells = tbl.querySelectorAll('th, td');
-    cells.forEach(cell => {
-      setCellStyle(cell, {
-        border: 'none',
-        textAlign: 'center',
-        verticalAlign: 'middle',
-        padding: '6px 8px'
-      });
-    });
-
-    const headerRow = pickHeaderRow(tbl);
-    if (headerRow) {
-      headerRow.querySelectorAll('th, td').forEach(cell => {
-        cell.style.borderBottom = '1px solid #000';
-      });
-    }
-  }
-
-  function styleFullBorder(tbl) {
-    tbl.style.borderCollapse = 'collapse';
-    tbl.style.border = '1px solid #000';
-    const alignCenter = Math.random() < 0.5 ? 'center' : 'left';
-
-    const cells = tbl.querySelectorAll('th, td');
-    cells.forEach(cell => {
-      setCellStyle(cell, {
-        border: '1px solid #000',
-        textAlign: alignCenter,
-        verticalAlign: 'middle',
-        padding: '6px 8px'
-      });
-    });
-  }
-
-  function styleOneTable(tbl) {
-    if (tbl.dataset.styled === '1') return; 
-    const useThreeLine = Math.random() < 0.5;
-    if (useThreeLine) styleThreeLine(tbl);
-    else styleFullBorder(tbl);
-    tbl.dataset.styled = '1';
-  }
-
-  function styleTables(root) {
-    const scope = root || document;
-    scope.querySelectorAll('table:not([data-styled])').forEach(styleOneTable);
-  }
-
-  function run() {
-    styleTables(document);
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', run, { once: true });
-  } else {
-    run();
-  }
-
-  const obs = new MutationObserver(mutations => {
-    for (const m of mutations) {
-      for (const node of m.addedNodes) {
-        if (node.nodeType !== 1) continue; 
-        if (node.tagName && node.tagName.toLowerCase() === 'table') {
-          styleOneTable(node);
-        } else {
-          styleTables(node);
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自动物理分页报告</title>
+    <style>
+        /* --- 基础 UI --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: "Microsoft YaHei", sans-serif; 
+            background: #525659; /* 深色背景模拟阅读器 */
+            padding: 40px 0; 
+            min-height: 100vh;
         }
-      }
-    }
-  });
-  obs.observe(document.documentElement, { childList: true, subtree: true });
 
-  window.styleTables = styleTables;
-})();
-</script>
+        /* --- 隐藏的源素材区域 (HTML 模板) --- */
+        #source-materials { display: none; }
 
+        /* --- 悬浮打印按钮 (仅屏幕可见) --- */
+        .fab-print {
+            position: fixed; bottom: 30px; right: 30px;
+            width: 60px; height: 60px;
+            background: #007bff; color: white;
+            border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            border: none; cursor: pointer;
+            font-size: 24px; display: flex; align-items: center; justify-content: center;
+            z-index: 9999; transition: transform 0.2s, background 0.2s;
+        }
+        .fab-print:hover { background: #0056b3; transform: scale(1.1); }
+        .fab-print::after { content: "🖨️"; }
 
-  <script>
-  window.MathJax = {
-    startup: { typeset: true },
+        /* --- 简单的 Loading 提示 --- */
+        #loading-mask {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: #fff; z-index: 10000;
+            display: flex; justify-content: center; align-items: center;
+            color: #666; font-size: 14px;
+        }
 
-    tex: {
-      inlineMath: [['$', '$'], ['\\(', '\\)']],
-      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        /* --- A4 纸张容器 --- */
+        #report-stage {
+            width: 210mm; margin: 0 auto;
+            display: flex; flex-direction: column; gap: 20px;
+        }
 
-      processEscapes: true, 
-      tags: 'none'      
-    },
+        .a4-page {
+            width: 210mm; height: 297mm;
+            background: #fff;
+            padding: 20mm 15mm; /* 页边距 */
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column; 
+        }
 
-    options: {
-      skipHtmlTags: ['script','noscript','style','textarea','pre','code']
-    }
-  };
-  </script>
-<script src="/home/ma-user/work/data_mllm/software/MathJax/es5/tex-mml-chtml.js">
-</script>
+        /* --- 静态文本区域样式 --- */
+        .doc-header, .doc-footer { margin-bottom: 15px; color: #333; line-height: 1.6; }
+        .doc-header h1 { font-size: 24px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
+        .doc-footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #eee; font-style: italic; color: #666; }
 
-{% endblock body %}
+        /* --- 表格样式 --- */
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 14px;
+            flex-shrink: 0; 
+        }
+        
+        .report-table th, .report-table td {
+            border: 1px solid #000; /* 实线边框 */
+            padding: 6px 8px;
+            word-break: break-all;
+            vertical-align: top;
+            line-height: 1.5;
+        }
+
+        .report-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            height: 40px;
+            border-bottom: 1px solid #000;
+        }
+
+        /* --- 跨页闭合逻辑 (全实线) --- */
+        tr.row-cut-bottom td { border-bottom: 1px solid #000; }
+        tr.row-cut-top td { border-top: 1px solid #000; } 
+
+        /* --- 打印专用样式 --- */
+        @media print {
+            body { background: white; padding: 0; }
+            .fab-print { display: none !important; } /* 隐藏按钮 */
+            #report-stage { gap: 0; }
+            .a4-page { margin: 0; box-shadow: none; page-break-after: always; height: 297mm; }
+            #loading-mask { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading-mask">正在排版...</div>
+
+    <button class="fab-print" onclick="window.print()" title="打印"></button>
+
+    <div id="source-materials">
+        <div id="source-header" class="doc-header">
+            <h1>工程验收测试报告</h1>
+            <p><strong>编号：</strong> SN-2025-8892</p>
+            <p><strong>摘要：</strong> 本页面加载时自动执行 JS 物理切割运算。表格上方使用了 HTML 预定义的头部模板，下方有尾部模板。表格行在溢出时会自动切割至下一页，并保持边框实线闭合。</p>
+        </div>
+        <div id="source-footer" class="doc-footer">
+            <h3>审批意见</h3>
+            <p>经系统检测，页面高度计算误差在 1px 以内，符合工业级打印标准。</p>
+            <div style="margin-top: 30px; display: flex; justify-content: space-between;">
+                <span>负责人签字：______________</span>
+                <span>日期：2026年___月___日</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="report-stage"></div>
+
+    <script>
+        // === 模拟数据 ===
+        function generateTableData() {
+            const data = [];
+            for (let i = 1; i <= 15; i++) {
+                let desc = `这是第 ${i} 行的标准测试数据。`;
+                // 制造长文本，测试跨页
+                if (i === 4 || i === 9) {
+                    desc += "【长文本测试】" + "为了验证无需按钮直接加载的效果，我们将这段文本延长。程序会在页面加载完成后立即计算 DOM 高度，进行切割。跨页处的上下边框都应为实线。".repeat(20);
+                }
+                data.push({ id: i, name: `项目 ${String.fromCharCode(64+i)}`, desc: desc });
+            }
+            return data;
+        }
+
+        // === 核心逻辑 ===
+        class ReportRenderer {
+            constructor(containerId, data) {
+                this.container = document.getElementById(containerId);
+                this.data = data;
+                this.pages = [];
+                this.colWidths = ["60px", "120px", "auto"]; 
+                this.config = { pageHeightPx: 0, contentHeightPx: 0 };
+            }
+
+            async init() {
+                this.container.innerHTML = '';
+                this.calculateMetrics();
+                await this.render();
+                // 渲染完成后，移除加载遮罩
+                const mask = document.getElementById('loading-mask');
+                if(mask) mask.style.display = 'none';
+            }
+
+            calculateMetrics() {
+                const tempPage = document.createElement('div');
+                tempPage.className = 'a4-page';
+                document.body.appendChild(tempPage);
+                const rect = tempPage.getBoundingClientRect();
+                const style = window.getComputedStyle(tempPage);
+                this.config.pageHeightPx = rect.height;
+                this.config.contentHeightPx = rect.height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+                document.body.removeChild(tempPage);
+            }
+
+            appendTemplate(pageContent, templateId) {
+                const source = document.getElementById(templateId);
+                if (!source) return;
+                const clone = source.cloneNode(true);
+                clone.removeAttribute('id');
+                pageContent.appendChild(clone);
+            }
+
+            createPage(isFirstPage = false) {
+                const pageEl = document.createElement('div');
+                pageEl.className = 'a4-page';
+                this.container.appendChild(pageEl);
+
+                // 1. 首页头部
+                if (isFirstPage) this.appendTemplate(pageEl, 'source-header');
+
+                // 2. 表格
+                const table = document.createElement('table');
+                table.className = 'report-table';
+                const colgroup = document.createElement('colgroup');
+                colgroup.innerHTML = `<col style="width:${this.colWidths[0]}"><col style="width:${this.colWidths[1]}"><col>`;
+                table.appendChild(colgroup);
+                
+                if (isFirstPage) {
+                    const thead = document.createElement('thead');
+                    thead.innerHTML = `<tr><th>ID</th><th>名称</th><th>详细描述</th></tr>`;
+                    table.appendChild(thead);
+                }
+
+                const tbody = document.createElement('tbody');
+                table.appendChild(tbody);
+                pageEl.appendChild(table);
+
+                this.pages.push({ el: pageEl, tbody: tbody });
+                
+                // 3. 页脚页码（可选，这里用绝对定位简单处理）
+                const pageNum = document.createElement('div');
+                pageNum.style.cssText = "position:absolute; bottom:10mm; left:0; width:100%; text-align:center; font-size:12px; color:#999;";
+                pageNum.innerText = `— 第 ${this.pages.length} 页 —`;
+                pageEl.appendChild(pageNum);
+
+                return tbody;
+            }
+
+            getRemainingHeight(tbody) {
+                const pageEl = tbody.closest('.a4-page');
+                let usedHeight = 0;
+                // 计算 page 内所有直接子元素的高度总和
+                for (let child of pageEl.children) {
+                    // 排除绝对定位元素（如页码）以免干扰
+                    if (window.getComputedStyle(child).position === 'absolute') continue;
+                    usedHeight += child.offsetHeight;
+                }
+                return this.config.contentHeightPx - usedHeight;
+            }
+
+            async render() {
+                let currentTbody = this.createPage(true);
+                
+                for (let i = 0; i < this.data.length; i++) {
+                    const item = this.data[i];
+                    await this.appendRow(currentTbody, item, item.desc, true);
+                    currentTbody = this.pages[this.pages.length - 1].tbody;
+                }
+                await this.renderFooter();
+            }
+
+            async renderFooter() {
+                const lastPage = this.pages[this.pages.length - 1];
+                const pageEl = lastPage.el;
+                const sourceFooter = document.getElementById('source-footer');
+                
+                // 测量 footer 高度
+                const clone = sourceFooter.cloneNode(true);
+                clone.removeAttribute('id');
+                clone.style.visibility = 'hidden'; clone.style.position = 'absolute';
+                document.body.appendChild(clone);
+                const footerHeight = clone.offsetHeight;
+                document.body.removeChild(clone);
+                
+                // 计算剩余空间 (略微预留 margin 20px)
+                const remaining = this.getRemainingHeight(lastPage.tbody) - 20;
+
+                clone.style.visibility = 'visible';
+                clone.style.position = 'static';
+
+                if (remaining >= footerHeight) {
+                    pageEl.appendChild(clone);
+                } else {
+                    const newPageEl = document.createElement('div');
+                    newPageEl.className = 'a4-page';
+                    // 新页也要加页码
+                    const pageNum = document.createElement('div');
+                    pageNum.style.cssText = "position:absolute; bottom:10mm; left:0; width:100%; text-align:center; font-size:12px; color:#999;";
+                    pageNum.innerText = `— 第 ${this.pages.length + 1} 页 —`;
+                    newPageEl.appendChild(pageNum);
+                    
+                    this.container.appendChild(newPageEl);
+                    newPageEl.appendChild(clone);
+                    this.pages.push({ el: newPageEl });
+                }
+            }
+
+            async appendRow(tbody, item, textToRender, isFirstPart) {
+                const tr = document.createElement('tr');
+                if (!isFirstPart) tr.className = 'row-cut-top';
+                
+                const idText = isFirstPart ? item.id : ''; 
+                const nameText = isFirstPart ? item.name : '';
+                tr.innerHTML = `<td>${idText}</td><td>${nameText}</td><td>${textToRender}</td>`;
+                tbody.appendChild(tr);
+
+                const remaining = this.getRemainingHeight(tbody);
+                if (remaining >= 0) return; 
+
+                tbody.removeChild(tr); 
+                let targetHeight = this.getRemainingHeight(tbody);
+                
+                if (targetHeight < 40) {
+                    const newTbody = this.createPage(false);
+                    await this.appendRow(newTbody, item, textToRender, isFirstPart);
+                    return;
+                }
+
+                const splitIndex = this.findSplitIndex(tbody, textToRender, targetHeight);
+                const part1 = textToRender.substring(0, splitIndex);
+                const part2 = textToRender.substring(splitIndex);
+
+                const tr1 = document.createElement('tr');
+                tr1.className = isFirstPart ? 'row-cut-bottom' : 'row-cut-top row-cut-bottom';
+                tr1.innerHTML = `<td>${idText}</td><td>${nameText}</td><td>${part1}</td>`;
+                tbody.appendChild(tr1);
+
+                const newTbody = this.createPage(false);
+                await this.appendRow(newTbody, item, part2, false);
+            }
+
+            findSplitIndex(tbody, fullText, targetHeight) {
+                let low = 0, high = fullText.length, best = 0;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td></td><td></td><td></td>`;
+                tbody.appendChild(tr);
+                const cell = tr.children[2];
+
+                while (low <= high) {
+                    const mid = (low + high) >> 1;
+                    cell.innerText = fullText.substring(0, mid);
+                    if (tr.offsetHeight <= targetHeight) {
+                        best = mid;
+                        low = mid + 1;
+                    } else {
+                        high = mid - 1;
+                    }
+                }
+                tbody.removeChild(tr);
+                return best;
+            }
+        }
+
+        // === 自动执行入口 ===
+        // 监听 window load 事件，确保字体和样式加载完毕后再计算高度
+        window.addEventListener('load', () => {
+            new ReportRenderer('report-stage', generateTableData()).init();
+        });
+
+    </script>
+</body>
+</html>

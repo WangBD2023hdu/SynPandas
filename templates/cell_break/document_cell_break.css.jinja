@@ -31,9 +31,9 @@ p {
   border: 1px solid #ccc;
   display: flex;
   flex-direction: column;
-  padding: 12mm;
-  padding-top: 18mm;
-  padding-bottom: 18mm;
+  padding: 15mm;
+  padding-top: 5mm;
+  padding-bottom: 0mm;
   page-break-after: always;
   box-sizing: border-box;
   position: relative;
@@ -44,8 +44,8 @@ p {
 .main_content {
   column-count: {{styles.columns}};
   column-gap: 16px;
-  padding-top: 22mm;
-  padding-bottom: 28mm;
+  padding-top: 2mm;
+  padding-bottom: 0mm;
   box-sizing: border-box;
 }
 
@@ -211,7 +211,50 @@ h3 {
   margin: 2px auto;
 }
 
+/* 1. 容器改为 block */
+.a4-page {
+  display: block; /* 必须是 block */
+  /* 其他不变 */
+}
+
+/* 2. 允许行和单元格内部断页 */
+@media print {
+  tr, td, th, tbody, thead, table {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+}
+
+/* 3. 专门针对不重复表头的 Hack */
+.table-no-repeat-header .table-block table thead {
+  display: table-row-group !important; /* 防止重复 */
+}
+
+/* 4. 确保页面无物理边距，完全由 HTML 控制 */
 @page {
   size: A4;
-  margin: 15mm 0 15mm 0 !important;
+  margin: 0 !important; /* 设为0，防止定位偏移 */
+}
+
+.a4-page > :last-child {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
+
+    /* [核心修复] 再次确保最后一页不强制分页 */
+    .a4-page:last-of-type {
+        page-break-after: auto !important;
+        break-after: auto !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important; /* 极端情况下 padding 也会捣乱 */
+        padding-top: 10px;
+        height: auto !important;
+    }
+    
+    /* 打印时 HTML/BODY 高度设为 auto，防止 100% 导致的滚动条空白页 */
+    @media print {
+        html, body {
+            height: auto !important;
+            overflow: visible !important;
+        }
 }

@@ -29,7 +29,8 @@ from utils.utils import (
     rows_count,
     add_thead_tbody_to_table,
     get_random_text_snippet,
-)
+    doc_dict_to_markdown,
+    )
 from utils.utils import get_args
 from typing import List
 from utils.HeaderFooter import produce_header_footer
@@ -77,6 +78,6 @@ class GetData:
             raise ValueError(f"get_data not in {module_name}.py!")
         func = getattr(module, "get_data")
         input_data = func(self, layout_config)
-
-        return input_data
+        md = doc_dict_to_markdown(input_data)
+        return input_data, md
     

@@ -1,18 +1,18 @@
 # 配置1: 表头重复 - 每页都显示表头
 data_paths:
-  text: "examples/data/text.json"
+  text: "examples/data/stock.json"
   image: "examples/data/figure.json"
-  table: "examples/data/table.json"
+  table: "examples/fin_table.json"
   formula: "examples/data/formula.json"
   title: ""
 work_path:
   template_path: "templates"
-  template_file: "three_columns/document_repeat_header.html.jinja"  # 使用表头重复模板
-  template_get_data: "three_columns/getData"
-  html_path: "/Users/bdw/Downloads/INF-MLLM/Infinity-Parser/Infinity-Synth/working/html/output_{i}.html"
-  save_image_dir: "working/image/"
-  output_gt_path: "working/ground_truth/result_of_id{i}.json"
-  result: "results.json"
+  template_file: "repeat_header/document_repeat_header.html.jinja"  # 使用表头重复模板
+  template_get_data: "repeat_header/getData"
+  html_path: "/home/ma-user/work/wbd/GET_DATA/SynPandas/working/repeat_header/html/output_{i}.html"
+  save_image_dir: "working/repeat_header/image/"
+  output_gt_path: "working/repeat_header/ground_truth/result_of_id{i}.json"
+  result: "working/repeat_header/results.json"
 defaults:
   save_path: "Temp"
   save_every_n: 4
@@ -27,12 +27,12 @@ layout_config:
     table: 1  # 包含表格
     figure: 0
     title: 0
-    text: 10
+    text: 3
     formula: 0
     header: 1
     footer: 1
     page_footnote: 0
   columns: 1
 
-num_workers: 1
-nums: 10
+num_workers: 10
+nums: 10000

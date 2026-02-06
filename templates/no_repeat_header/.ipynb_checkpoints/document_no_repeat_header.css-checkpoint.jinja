@@ -31,9 +31,9 @@ p {
   border: 1px solid #ccc;
   display: flex;
   flex-direction: column;
-  padding: 12mm;
-  padding-top: 18mm;
-  padding-bottom: 18mm;
+  padding: 15mm;
+  padding-top: 0mm;
+  padding-bottom: 0mm;
   page-break-after: always;
   box-sizing: border-box;
   position: relative;
@@ -44,8 +44,8 @@ p {
 .main_content {
   column-count: {{styles.columns}};
   column-gap: 16px;
-  padding-top: 22mm;
-  padding-bottom: 28mm;
+  padding-top: 2mm;
+  padding-bottom: 0mm;
   box-sizing: border-box;
 }
 
@@ -215,3 +215,14 @@ h3 {
   size: A4;
   margin: 15mm 0 15mm 0 !important;
 }
+
+@media print {
+  th, td { background-image: none !important; }
+}
+
+@media print {
+  table { border: 0 !important; outline: 0 !important; box-shadow: none !important; }
+  thead, tbody, tfoot, tr, colgroup, caption { border: 0 !important; outline: 0 !important; box-shadow: none !important; }
+  th, td { border: 1px solid #000 !important; box-shadow: none !important; outline: 0 !important; }
+}
+

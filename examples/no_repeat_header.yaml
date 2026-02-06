@@ -1,18 +1,18 @@
 # 配置2: 表头不重复 - 只在第一页显示表头
 data_paths:
-  text: "examples/data/text.json"
+  text: "examples/data/stock.json"
   image: "examples/data/figure.json"
   table: "examples/fin_table.json"
   formula: "examples/data/formula.json"
   title: ""
 work_path:
   template_path: "templates"
-  template_file: "three_columns/document_no_repeat_header.html.jinja"  # 使用表头不重复模板
-  template_get_data: "three_columns/getData"
-  html_path: "/home/ma-user/work/renkexuan/SynthPDF2MD/Infinity_Synth/working/html/output_{i}.html"
-  save_image_dir: "working/image/"
-  output_gt_path: "working/ground_truth/result_of_id{i}.json"
-  result: "results.json"
+  template_file: "no_repeat_header/document_no_repeat_header.html.jinja"  # 使用表头不重复模板
+  template_get_data: "no_repeat_header/getData"
+  html_path: "/home/ma-user/work/wbd/GET_DATA/SynPandas/working/no_repeat_header/html/output_{i}.html"
+  save_image_dir: "working/no_repeat_header/image/"
+  output_gt_path: "working/no_repeat_header/ground_truth/result_of_id{i}.json"
+  result: "working/no_repeat_header/results.json"
 defaults:
   save_path: "Temp"
   save_every_n: 4
@@ -24,10 +24,10 @@ multipage:
 
 layout_config:
   element:
-    table: 10  # 包含表格
+    table: 1  # 包含表格
     figure: 0
     title: 0
-    text: 10
+    text: 3
     formula: 0
     header: 1
     footer: 1
