@@ -120,16 +120,23 @@ class chrome_render:
         overflowDetected = False
         
         if not overflowDetected:
-            pdf_obj = self.driver.execute_cdp_cmd("Page.printToPDF", {
-                "paperWidth": 8.27,       
-                "paperHeight": 11.69,
-                "marginTop": 10, "marginBottom": 10, "marginLeft": 0, "marginRight": 0,
-                "printBackground": True,
-                "scale": 1,
-                "preferCSSPageSize": True, 
-                "landscape": False
-            })
-                    
+            try:
+                pdf_obj = self.driver.execute_cdp_cmd("Page.printToPDF", {
+                    "landscape": False,
+                    "displayHeaderFooter": False, # 我们自己在 HTML 里画了页眉页脚，这里必须关掉
+                    "printBackground": True,      # 必须开启，否则 CSS 背景色不显示
+                    "paperWidth": 8.27,           # A4 宽度 (英寸)
+                    "paperHeight": 11.69,         # A4 高度 (英寸)
+                    "marginTop": 0,               # 【修改点】设为 0
+                    "marginBottom": 0,            # 【修改点】设为 0
+                    "marginLeft": 0,              # 【修改点】设为 0
+                    "marginRight": 0,             # 【修改点】设为 0
+                    "scale": 0.99,
+                    "preferCSSPageSize": True     # 优先使用 CSS 定义的页面大小
+                })
+            except Exception as e:
+                print(f"PDF 生成失败: {e}")
+
             with open(save_path + ".pdf", 'wb') as file:
                 file.write(base64.b64decode(pdf_obj['data']))
 
@@ -610,15 +617,15 @@ class chrome_render:
             """)
 
         if not overflowDetected:
-                pdf_obj = self.driver.execute_cdp_cmd("Page.printToPDF", {
-                    "paperWidth": 8.27,       
-                    "paperHeight": 11.69,
-                    "marginTop": 10, "marginBottom": 10, "marginLeft": 0, "marginRight": 0,
-                    "printBackground": True,
-                    "scale": 1,
-                    "preferCSSPageSize": True, 
-                    "landscape": False
-                })
+            pdf_obj = self.driver.execute_cdp_cmd("Page.printToPDF", {
+                "paperWidth": 8.27,       
+                "paperHeight": 11.69,
+                "marginTop": 10, "marginBottom": 10, "marginLeft": 0, "marginRight": 0,
+                "printBackground": True,
+                "scale": 1,
+                "preferCSSPageSize": True, 
+                "landscape": False
+            })
 
 
             with open(save_path + ".pdf", 'wb') as file:
